@@ -1,0 +1,36 @@
+{
+
+    "simul_name": "W/W_tension",
+    "potential_file": "/path_to/W_MNB_JPCM17.eam.fs",
+    "element": "W",
+
+    "moltenatoms": "W/molten_W_3800K.dat",
+
+    "cryst_struct": "bcc",
+    "latt_param": "3.165",
+
+    "etol": "1e-12", 
+
+
+    "new_simulation": 1,
+    "dump_every": 1,
+
+    "etol": "1e-12",
+    
+    "sxx": 0.0,
+    "syy": 0.0,
+    "szz": -5000.0,
+    "sxy": 0.0,
+    "syz": 0.0,
+    "sxz": 0.0,
+
+    "nx": 30,
+    "ny": 30,
+    "nz": 30,
+
+    "R": 15.0,
+    "N_melt_per_step": 2,
+    "N_insertions": 3
+
+
+}
