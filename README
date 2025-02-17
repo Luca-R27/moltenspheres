@@ -1,0 +1,19 @@
+LAMMPS-Python script to use the molten spheres algorithm to perform athermal irradiation.
+The algorithm is described at: https://doi.org/10.1016/j.actamat.2025.120814
+Reali, L., Boleininger, M., Mason, D. R., & Dudarev, S. L. (2025). Atomistic simulations of athermal irradiation creep and swelling of copper and tungsten at high dose. Acta Materialia.
+
+Please cite this paper if you make use of this script.
+
+
+LAMMPS must be compiled as a shared library linked to Python 3+ with the numpy, scipy, and mpi4py packages.
+The script is distributed on an "AS IS" basis without warranties or conditions of any kind, either express or implied.
+
+The main programme is in moltenspheres.py. Simulation parameters are in a .json file in json folder.
+
+
+Run with e.g.
+>> mpirun -np 8 python3 moltenspheres.py json/Cu.json 
+
+
+The script can be adapted to create an arcdpa-like plot with number of defects for a given molten sphere radius. Instead of overlapping events N times, one can use LAMMPS's clear command and have N independent runs with a single insertion (need to redefine several things inside the insertion loop if this is the case). 
+The script can also be adapted to work with a distribution of sphere radii to mimic the effect of a spectrum of recoils. One can take a recoil spectrum and convert it to a frequency distribution for R, and then e.g. use numpy.random.choice() using the distribution of the radii to weigh the random number generation.  
