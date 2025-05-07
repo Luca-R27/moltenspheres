@@ -166,12 +166,17 @@ if new_simulation :
         lmp.command('fix rel all box/relax x %d y %d z %d xy %d yz %d xz %d couple none vmax 0.0005' % (sxx, syy, szz, sxy, syz, sxz))
         lmp.command('minimize %s 0.0 100000 100000' % (etolstring))
         lmp.command('unfix rel')
+        i_start = 0
 
-        lmp.command("write_dump all atom %s" % ( simul_name+".dump") )
-        lmp.command("print 'lx ly lz xy yz xz pxx pyy pzz pxy pxz pyz' file %s" % (simul_name+".dat") )
-        lmp.command("print '$(lx) $(ly) $(lz) $(xy) $(yz) $(xz) $(pxx) $(pyy) $(pzz) $(pxy) $(pxz) $(pyz)' append %s" % (simul_name+".dat")  )
+        lmp.command("write_dump all atom %s" % ( simul_name+".0.dump") )
+        # for convenience print the full dat file and also one that will match the dumped files. One is simply a subset of the other.
+        lmp.command("print 'step lx ly lz xy yz xz pxx pyy pzz pxy pxz pyz pe' file %s" % (simul_name+".dat") )
+        lmp.command("print '0 $(lx) $(ly) $(lz) $(xy) $(yz) $(xz) $(pxx) $(pyy) $(pzz) $(pxy) $(pxz) $(pyz) $(pe)' append %s" % (simul_name+".dat")  )
+        lmp.command("print 'step lx ly lz xy yz xz pxx pyy pzz pxy pxz pyz pe' file %s" % (simul_name+"_full.dat") )
+        lmp.command("print '0 $(lx) $(ly) $(lz) $(xy) $(yz) $(xz) $(pxx) $(pyy) $(pzz) $(pxy) $(pxz) $(pyz) $(pe)' append %s" % (simul_name+"_full.dat")  )        
 else :
-        # support only reading from a dump file (so that timestep can be read from the second line) 
+        # for the time being, support only reading from a dump file (so that timestep can be read from the second line). Also assume there's a full dat file where to get the last step of the simulation to restart.
+        i_start = int(np.loadtxt(simul_name+'_full.dat', delimiter=' ', skiprows=1)[-1, 0])
         timestep_last = str(int(np.loadtxt(simul_name+'_last.dump', skiprows=1, delimiter=' ', max_rows=1)))
         lmp.command("delete_atoms group all")
         lmp.command("read_dump %s %s x y z box yes add yes" % (simul_name+'_last.dump', timestep_last) )
@@ -179,15 +184,18 @@ comm.barrier()
 
 
 # here perform the subsequent molten spheres insertions
-for i in np.arange(N_ins):
- 
+for i in np.arange(i_start, N_ins):
+
+        lmp.command("variable i equal %s" % (str(i+1))) # LAMMPS variable for the filename
+
         # Shift the atoms by a random distance to simplify the insertion steps without biasing against the edges, then will shift back
         if me == 0:
                 print("************* STEP "+str(i+1)+" out of "+str(N_ins)+". *******************")
                 # get box dimensions to have lower and upper bounds for the centres of the spheres 
-                xlo, xhi = lmp.extract_global("boxxlo", 2), lmp.extract_global("boxxhi", 2)
-                ylo, yhi = lmp.extract_global("boxylo", 2), lmp.extract_global("boxyhi", 2)
-                zlo, zhi = lmp.extract_global("boxzlo", 2), lmp.extract_global("boxzhi", 2)
+                box = lmp.extract_box()
+                xlo, ylo, zlo = box[0]
+                xhi, yhi, zhi = box[1]
+                xy, yz, xz = box[2], box[3], box[4]
                 x_shift = np.random.uniform(0.0, (xhi-xlo))
                 y_shift = np.random.uniform(0.0, (yhi-ylo))
                 z_shift = np.random.uniform(0.0, (zhi-zlo))
@@ -209,6 +217,8 @@ for i in np.arange(N_ins):
         melt_centres= comm.bcast(melt_centres, root=0)
         comm.barrier()
         lmp.command("displace_atoms all move %f %f %f units lattice" % (x_shift, y_shift, z_shift) )
+
+
 
         # Here substitute the atoms in the simulation by molten atoms
         for k in np.arange(N_melt_per_step):
@@ -251,7 +261,7 @@ for i in np.arange(N_ins):
                 arr[:, 3] = y_tot
                 arr[:, 4] = z_tot
                 with open(simul_name+'_auxil.txt', 'w') as f:
-                        f.write("# molten sphere \n"+str(np.size(x_tot))+" atoms\n"+str(xlo)+" "+str(xhi)+" xlo xhi\n"+str(ylo)+" "+str(yhi)+" ylo yhi\n"+str(zlo)+" "+str(zhi)+" zlo zhi\n Atoms\n \n")
+                        f.write("# molten sphere \n \n"+str(np.size(x_tot))+" atoms\n1 atom types\n\n"+str(xlo)+" "+str(xhi)+" xlo xhi\n"+str(ylo)+" "+str(yhi)+" ylo yhi\n"+str(zlo)+" "+str(zhi)+" zlo zhi\n"+str(xy)+" "+str(xz)+" "+str(yz)+" xy xz yz\n \nAtoms\n \n")
                         np.savetxt(f, arr, delimiter=' ', fmt='%s')
 
         comm.barrier()
@@ -272,9 +282,12 @@ for i in np.arange(N_ins):
         # Shift the atoms back in order not to have a moving crystal
         lmp.command("displace_atoms all move %f %f %f units lattice" % (-x_shift, -y_shift, -z_shift) )
         comm.barrier()
+
+        lmp.command("print '$(v_i) $(lx) $(ly) $(lz) $(xy) $(yz) $(xz) $(pxx) $(pyy) $(pzz) $(pxy) $(pxz) $(pyz) $(pe)' append %s" % (simul_name+"_full.dat")  )
+        lmp.command("write_dump all atom %s" % (simul_name+'_last.dump'))
+
         # Save info every so many steps 
         if ((i+1)%dump_every==0):
-                lmp.command("write_dump all atom %s modify append yes" % (simul_name+".dump") )
-                lmp.command("write_dump all atom %s" % (simul_name+'_last.dump'))
-                lmp.command("print '$(lx) $(ly) $(lz) $(xy) $(yz) $(xz) $(pxx) $(pyy) $(pzz) $(pxy) $(pxz) $(pyz)' append %s" % (simul_name+".dat")  )
+                lmp.command("write_dump all atom %s" % (simul_name+"."+str(i+1)+".dump") )
+                lmp.command("print '$(v_i) $(lx) $(ly) $(lz) $(xy) $(yz) $(xz) $(pxx) $(pyy) $(pzz) $(pxy) $(pxz) $(pyz) $(pe)' append %s" % (simul_name+".dat")  )
 

@@ -10,6 +10,7 @@ The script is distributed on an "AS IS" basis without warranties or conditions o
 
 The main programme is in moltenspheres.py. Simulation parameters are in a .json file in json folder.
 
+Tested with LAMMPS version 29 Aug 2024.
 
 Run with e.g.
 >> mpirun -np 8 python3 moltenspheres.py json/Cu.json 
