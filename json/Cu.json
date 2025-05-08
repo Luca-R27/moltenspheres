@@ -14,7 +14,7 @@
     "new_simulation": 0,
     "dump_every": 3,
 
-    "etol": "1e-8",
+    "etol": "1e-12",
     
     "sxx": 0.0,
     "syy": 0.0,
